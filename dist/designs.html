@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Choose a workspace · TypeLabz</title><script src="designs.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f7f8f5;color:#252a27;font:16px/1.5 Inter,"Segoe UI",sans-serif}header,main{width:min(1140px,calc(100% - 48px));margin:auto}header{display:flex;align-items:center;justify-content:space-between;height:75px;border-bottom:1px solid #cdd2c9}a{color:inherit;text-underline-offset:4px}header>a:first-child{font-size:27px;text-decoration:none;font-weight:750;letter-spacing:-.075em}header>a:last-child{font-size:14px}h1{margin:38px 0 4px;font-size:clamp(36px,5vw,59px);letter-spacing:-.065em;line-height:1.1;font-weight:620}.intro{color:#57605a;margin:9px 0 27px}#gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px 20px;margin-bottom:60px}.sample{display:block;border:1px solid #c4c8c0;border-radius:7px;overflow:hidden;background:#eee}.sample img{width:100%;height:auto;display:block}.caption{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:11px}h2{font-size:21px;letter-spacing:-.045em;margin:0}.num{font:14px Consolas,monospace;color:#747d75}.caption a{font-size:13px;color:#505b53}article p{margin:6px 0 12px;color:#505b53;min-height:3em}.actions{display:flex;gap:14px;align-items:center}.actions a{font-size:14px}.choose{background:#26332c;color:#fff;border:0;border-radius:5px;padding:8px 12px;font:600 14px inherit;font-family:inherit;cursor:pointer}a:focus-visible,button:focus-visible{outline:3px solid #4f7960;outline-offset:3px}@media(max-width:850px){#gallery{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){#gallery{grid-template-columns:1fr}header,main{width:calc(100% - 32px)}article p{min-height:0}h1{margin-top:25px}}
+</style></head><body>
+<header><a href="./">TypeLabz</a><a href="./">Typing test</a></header>
+<main><h1>Choose your workspace.</h1><p class="intro">Try any of the five layouts. Choose one to use for future tests in this browser.</p><div id="gallery"></div></main>
+<script>
+const saved = savedWorkspace();
+for(const [index,design] of workspaces.entries()){
+  const preview='./?design='+design.id;
+  const card=document.createElement('article');
+  card.innerHTML='<a class="sample" href="'+preview+'" aria-label="Preview '+design.name+'"><img width="900" height="510" src="looks/'+design.id+'.webp" alt="'+design.brief+'"></a><div class="caption"><h2><span class="num">'+(index+1)+'</span> '+design.name+'</h2><a href="'+design.url+'" target="_blank" rel="noreferrer">'+design.source+'</a></div><p>'+design.brief+'</p><div class="actions"><button class="choose">'+(saved===design.id?'Use selected layout':'Choose '+design.name)+'</button><a href="'+preview+'">Try it</a></div>';
+  card.querySelector('button').onclick=()=>keepWorkspace(design);
+  document.getElementById('gallery').append(card);
+}
+</script></body></html>

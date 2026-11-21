@@ -69,27 +69,26 @@ function makeBoard(){
     }
     board.append(line);
   }
-  [8,14,22,12,27,38,23,33,46,30,18,26,14,8].forEach(h=>{const i=document.createElement("i");i.style.height=h+"px";$("ticks").append(i)});
 }
 function paintBoard(){
   const timings=group(state.samples.filter(Boolean),p=>p.pair[1]);
-  const mids=[...timings.values()].map(list=>median(list.map(p=>p.dt))).sort((a,b)=>a-b);
+  const mids=[...timings.values()].filter(list=>list.length>=3).map(list=>median(list.map(p=>p.dt))).sort((a,b)=>a-b);
   for(const [k,el] of keys){
     const list=timings.get(k)||[], val=median(list.map(p=>p.dt));
     el.classList.toggle("selected",selected===k);el.setAttribute("aria-pressed",String(selected===k));
-    el.style.background=view==="zones"?"":val===null?"#f6f5f9":colors[val<=mids[Math.floor((mids.length-1)/3)]?0:val<=mids[Math.floor(2*(mids.length-1)/3)]?1:2];
+    el.style.background=view==="zones"?"":list.length<3?"#f6f5f9":colors[val<=mids[Math.floor((mids.length-1)/3)]?0:val<=mids[Math.floor(2*(mids.length-1)/3)]?1:2];
     if(selected===k){$("key-read").textContent=k.toUpperCase()+" · "+(hand(k)==="L"?"Left":"Right")+" zone · "+(list.length?ms(val)+" median arrival across "+list.length+" correct transition"+(list.length===1?"":"s"):"No correct transitions into this key yet.")}
   }
   $("key-read").hidden=!selected;
   $("map-note").textContent=view==="zones"?"See which side of the keyboard each letter belongs to.":"Median time to reach each letter, grouped by speed within this session.";
   $("zones").setAttribute("aria-pressed",String(view==="zones"));$("timing").setAttribute("aria-pressed",String(view==="timing"));
-  const items=view==="zones"?[["#d9d2ff","Left zone"],["#ffceb6","Right zone"]]:[[colors[0],"Faster"],[colors[1],"Middle"],[colors[2],"Slower"],["#f6f5f9","No data"]];
+  const items=view==="zones"?[["#d9d2ff","Left zone"],["#ffceb6","Right zone"]]:[[colors[0],"Faster"],[colors[1],"Middle"],[colors[2],"Slower"],["#f6f5f9","Under 3 samples"]];
   $("legend").innerHTML=items.map(([color,label])=>'<span><i class="chip" style="background:'+color+'"></i>'+label+'</span>').join("");
 }
 function reset(next="test"){
   clearInterval(timer);mode=next;
   const words=next==="test"?shuffled(testLines).join(" "):next==="drill"?lesson.practice.join(" "):lesson.retest.join(" ");
-  state={text:words,typed:"",shots:0,hits:0,samples:[],times:[],last:null,elapsed:0,since:null,done:false,nodes:[]};
+  state={text:words,typed:"",shots:0,hits:0,samples:[],edits:new Set(),last:null,elapsed:0,since:null,done:false,nodes:[]};
   selected=null;view="zones";const passage=$("passage");passage.replaceChildren();passage.style.top="0px";
   for(const part of words.match(/\S+| /g)){
     const word=document.createElement("span");word.className=part===" "?"":"token";
@@ -110,7 +109,6 @@ function meters(){
   const spent=elapsed();$("time").textContent=Math.max(0,Math.ceil(duration-spent/1000));
   const correct=[...state.typed].filter((c,i)=>c===state.text[i]).length;
   $("wpm").textContent=spent>=500?Math.round(correct*12000/spent):"—";$("accuracy").textContent=state.shots?Math.round(100*state.hits/state.shots):"—";
-  [...$("ticks").children].forEach((el,i)=>el.classList.toggle("spent",i>=Math.ceil(14*(1-spent/(duration*1000)))));
 }
 function pause(){
   if(state.since===null||state.done)return;
@@ -118,15 +116,15 @@ function pause(){
   state.elapsed=spent;state.since=null;state.last=null;clearInterval(timer);
   $("hint").textContent="Paused · type to resume";meters();
 }
-function input(ch){
+function input(ch,eventTime){
   if(state.done)return;const now=performance.now();if(elapsed(now)>=duration*1000){finish();return}
   if(state.since===null){state.since=now;timer=setInterval(()=>{if(elapsed()>=duration*1000)finish();else meters()},150);$("hint").textContent="Recording keystrokes"}
   const pos=state.typed.length,match=ch===state.text[pos];state.shots++;if(match)state.hits++;
-  state.times[pos]=elapsed(now);state.samples[pos]=null;
-  if(match && /^[a-z]$/.test(ch) && state.last!==null && pos>0 && /[a-z]/.test(state.text[pos-1]) && state.typed[pos-1]===state.text[pos-1]){
-    state.samples[pos]={pair:state.text[pos-1]+ch,dt:now-state.last,pos};
+  state.samples[pos]=null;
+  if(match && /^[a-z]$/.test(ch) && state.last!==null && eventTime>=state.last && pos>0 && /[a-z]/.test(state.text[pos-1]) && state.typed[pos-1]===state.text[pos-1]){
+    state.samples[pos]={pair:state.text[pos-1]+ch,dt:eventTime-state.last,pos};
   }
-  state.last=match?now:null;state.typed+=ch;
+  state.last=match?eventTime:null;state.typed+=ch;
   state.nodes[pos].className=match?"good":"bad";const cap=keys.get(ch.toLowerCase());
   if(cap){cap.classList.add("hit");setTimeout(()=>cap.classList.remove("hit"),120)}
   if(state.typed.length===state.text.length){finish();return}
@@ -140,7 +138,8 @@ function cursor(){
 }
 function backspace(){
   if(state.done||!state.typed.length)return;
-  state.nodes[state.typed.length].className="";state.typed=state.typed.slice(0,-1);state.samples.pop();state.times.pop();state.last=null;
+  if(elapsed()>=duration*1000){finish();return}
+  state.nodes[state.typed.length].className="";state.typed=state.typed.slice(0,-1);state.samples.pop();state.edits.add(state.typed.length);state.last=null;
   cursor();meters();paintBoard();
 }
 function finish(){
@@ -155,8 +154,10 @@ function wordResults(){
     const end=match.index+match[0].length;
     if(end>state.typed.length)break;
     const pairs=state.samples.slice(match.index+1,end).filter(Boolean);
-    if(!pairs.length)continue;
-    entries.push({word:match[0],pairs,pace:median(pairs.map(x=>x.dt)),total:state.times[end-1]-state.times[match.index],clean:state.typed.slice(match.index,end)===match[0]});
+    if(!pairs.length || pairs.length!==match[0].length-1 || state.typed.slice(match.index,end)!==match[0])continue;
+    if([...state.edits].some(pos=>pos>=match.index && pos<end))continue;
+    const total=pairs.reduce((sum,p)=>sum+p.dt,0);
+    entries.push({word:match[0],pairs,pace:total/pairs.length,total});
   }
   return entries.sort((a,b)=>a.pace-b.pace);
 }
@@ -164,7 +165,13 @@ function makeLesson(samples){
   const seen=new Set(state.text.slice(0,state.typed.length).split(" "));
   const choices=[];
   for(const [pair,items] of group(samples,p=>p.pair)){
-    if(items.length<2)continue;
+    if(items.length<3)continue;
+    const contexts=new Set(items.map(({pos})=>{
+      const start=state.text.lastIndexOf(" ",pos)+1;
+      const stop=state.text.indexOf(" ",pos);
+      return state.text.slice(start,stop<0?undefined:stop);
+    }));
+    if(contexts.size<2)continue;
     const available=bank.filter(w=>w.includes(pair)),fresh=shuffled(available.filter(w=>!seen.has(w)));
     if(fresh.length<2||available.length<3)continue;
     const retest=fresh.slice(0,Math.min(4,Math.max(2,Math.floor(available.length/2))));
@@ -193,27 +200,27 @@ function report(){
   const directionNames={LL:"Left to left",RR:"Right to right",LR:"Left to right",RL:"Right to left"};
   const moves=group(samples,p=>hand(p.pair[0])+hand(p.pair[1]));
   const left=moves.get("LL")||[],right=moves.get("RR")||[];
-  if(left.length>=3 && right.length>=3){
+  if(left.length>=8 && right.length>=8){
     const gap=median(right.map(p=>p.dt))-median(left.map(p=>p.dt));
     const note=document.createElement("p");note.className="muted";
-    note.textContent="In this session, the median gap between two right-side letters was "+ms(Math.abs(gap))+" "+(gap>=0?"longer":"shorter")+" than between two left-side letters. Zones follow a US QWERTY layout. Finger use is self-observed.";
+    note.textContent=Math.round(Math.abs(gap))===0?"Left and right medians were equal to the nearest millisecond in this passage.":"In this passage, the median right-to-right gap was "+ms(Math.abs(gap))+" "+(gap>0?"longer":"shorter")+" than the left-to-left gap. Finger use is self-observed.";
     $("movement").before(note);note.dataset.comparison="true";
   }
   $("movement").className="stats";$("movement").innerHTML=Object.entries(directionNames).map(([k,name])=>{const list=moves.get(k)||[];return '<div class="stat">'+name+'<b>'+ms(median(list.map(x=>x.dt)))+'</b>'+list.length+' samples</div>'}).join("");
   const words=wordResults(),wrap=$("words");wrap.className="word-list";wrap.replaceChildren();
   for(const w of words){
-    const b=document.createElement("button");b.textContent=w.word+" · "+ms(w.pace);b.onclick=()=>{const d=$("word-detail");d.hidden=false;d.textContent=w.word+" · "+ms(w.total)+" first to last letter"+(w.clean?"":" · contains errors")+".   "+w.pairs.map(p=>p.pair.split("").join(" → ")+"  "+ms(p.dt)).join("   |   ");selected=w.pairs.reduce((a,b)=>a.dt>b.dt?a:b).pair[1];paintBoard()};wrap.append(b);
+    const b=document.createElement("button");b.textContent=w.word+" · "+ms(w.pace);b.onclick=()=>{const d=$("word-detail");d.hidden=false;d.textContent=w.word+" · "+ms(w.total)+" first to last letter.   "+w.pairs.map(p=>p.pair.split("").join(" → ")+"  "+ms(p.dt)).join("   |   ");selected=w.pairs.reduce((a,b)=>a.dt>b.dt?a:b).pair[1];paintBoard()};wrap.append(b);
   }
-  if(!words.length)wrap.textContent="Complete a word with a correct letter pair to see its timing.";
+  if(!words.length)wrap.textContent="Type a whole word of at least two letters in one uninterrupted attempt to rank it.";
 }
 const field=$("capture");
 field.addEventListener("keydown",e=>{
   if(e.ctrlKey||e.altKey||e.metaKey||e.isComposing)return;
   if(e.key==="Backspace"){e.preventDefault();backspace()}
-  else if(e.key.length===1){e.preventDefault();if(!e.repeat)input(e.key)}
+  else if(e.key.length===1){e.preventDefault();if(!e.repeat)input(e.key,e.timeStamp)}
 });
 field.addEventListener("beforeinput",e=>{
-  if(e.inputType==="insertText"&&e.data?.length===1){e.preventDefault();input(e.data)}
+  if(e.inputType==="insertText"&&e.data?.length===1){e.preventDefault();input(e.data,e.timeStamp)}
   else if(e.inputType==="deleteContentBackward"){e.preventDefault();backspace()}
   else e.preventDefault();
 });

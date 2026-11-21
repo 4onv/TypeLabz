@@ -1,40 +1,30 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#f5f4f8">
-  <title>Keytempo — Typing lab</title>
-  <link rel="stylesheet" href="style.css">
-  <script defer src="app.js"></script>
-</head>
-<body>
-  <header><div class="header-inner">
-    <a class="brand" href="./" aria-label="Keytempo home"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Keytempo</a>
-    <span class="header-label">Typing lab</span><span class="layout-label">English <b> / </b> QWERTY</span>
-  </div></header>
-  <main>
-    <div class="title"><h1>Typing lab</h1><p>Trace your rhythm across the keyboard.</p></div>
-    <div class="lab">
-      <section class="test-panel" aria-labelledby="session-title">
-        <div class="panel-bar"><h2 id="session-title">Typing test</h2><div class="switch duration" aria-label="Test duration"><button data-duration="30" aria-pressed="true">30s</button><button data-duration="60" aria-pressed="false">60s</button><button data-duration="90" aria-pressed="false">90s</button></div></div>
-        <div class="test-area" id="test-area">
-          <div id="passage" aria-hidden="true"></div>
-          <textarea id="capture" aria-label="Typing test input" aria-describedby="spoken-prompt" autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
-        </div>
-        <p id="spoken-prompt" class="sr"></p>
-        <div class="test-bottom"><span id="hint">Start typing to begin</span><button id="restart" title="Restart the current test">↻ <span>Restart</span></button></div>
-      </section>
-      <aside class="meters"><h2>Session pulse</h2><div class="meter-row first"><div><span class="meter-label">Time left</span><div class="time"><span id="time">30</span><small>s</small></div></div><div id="ticks" aria-hidden="true"></div></div>
-        <div class="meter-row"><span class="meter-label">Speed</span><strong><span id="wpm">—</span> <small>wpm</small></strong></div>
-        <div class="meter-row"><span class="meter-label">Accuracy</span><strong><span id="accuracy">—</span> <small>%</small></strong></div>
-      </aside>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TypeLabz</title>
+<script src="designs.js"></script>
+<link rel="stylesheet" href="style.css"><link rel="stylesheet" href="studio.css">
+<script defer src="app.js"></script>
+</head><body>
+<header><div class="header-inner"><a class="brand" href="./" aria-label="TypeLabz home">TypeLabz</a><a class="design-link" href="designs.html">Designs</a></div></header>
+<main>
+  <h1 class="sr">TypeLabz typing test</h1>
+  <div class="desk">
+    <div class="rail"><h2 id="session-title">Typing test</h2><div class="switch duration" aria-label="Test duration"><button data-duration="30" aria-pressed="true">30s</button><button data-duration="60" aria-pressed="false">60s</button><button data-duration="90" aria-pressed="false">90s</button></div></div>
+    <div class="surface"><div class="clock" aria-label="Time left"><span id="time">30</span><small>s</small></div>
+      <div class="test-area" id="test-area"><div id="passage" aria-hidden="true"></div><textarea id="capture" aria-label="Typing test input" aria-describedby="spoken-prompt" autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false"></textarea></div>
     </div>
-    <section class="map-panel"><div class="panel-bar"><div><h2>Keyboard map</h2><p id="map-note">See which side of the keyboard each letter belongs to.</p></div><div class="switch"><button id="zones" aria-pressed="true">Hand zones</button><button id="timing" aria-pressed="false">Timing</button></div></div>
-      <div class="board-wrap"><div id="keyboard" aria-label="QWERTY keyboard"></div></div><div id="legend"></div>
-      <div class="key-read" id="key-read" role="status" hidden></div>
-    </section>
-    <section id="report" hidden aria-labelledby="report-title"><h2 id="report-title" tabindex="-1">Session analysis</h2><div id="coaching"></div><h3>Movement across the keyboard</h3><div id="movement"></div><h3>Word timings</h3><p class="muted">Fastest first, ranked by median time between correct letters. Select a word to inspect its transitions.</p><div id="words"></div><div class="key-read" id="word-detail" role="status" hidden></div></section>
-    <div class="sr" id="status" aria-live="polite"></div>
-  </main>
-</body></html>
+    <div class="test-bottom"><span id="hint">Start typing to begin</span><button id="restart" title="Restart the current test">↻ <span>Restart</span></button></div>
+    <p id="spoken-prompt" class="sr"></p>
+  </div>
+  <section id="report" hidden aria-labelledby="report-title">
+    <h2 id="report-title" tabindex="-1">Session results</h2>
+    <div class="scoreline"><strong><span id="wpm">—</span> <small>wpm</small></strong><strong><span id="accuracy">—</span><small>% accuracy</small></strong></div>
+    <div id="coaching"></div>
+    <h3>Keyboard zones</h3><div id="movement"></div>
+    <details class="report-detail"><summary>Keyboard map</summary><div class="panel-bar"><p id="map-note"></p><div class="switch"><button id="zones" aria-pressed="false">Zones</button><button id="timing" aria-pressed="true">Timing</button></div></div><div class="board-wrap"><div id="keyboard" aria-label="QWERTY keyboard"></div></div><div id="legend"></div><div class="key-read" id="key-read" role="status" hidden></div></details>
+    <details class="report-detail"><summary>Word timings</summary><p class="muted">Clean words, fastest first by average gap from first to last letter. Select a word to inspect its gaps.</p><div id="words"></div><div class="key-read" id="word-detail" role="status" hidden></div></details>
+    <details class="report-detail"><summary>How the numbers work</summary><p>WPM counts correct characters still in the passage, including spaces, in groups of five per active minute. Accuracy counts correct character attempts divided by all character attempts, including mistakes you later corrected. Backspace is an editing action.</p><p>Pair and zone timings are medians of consecutive correct letters within words. Errors, edits, spaces and focus changes break a pair. A pause while the test stays focused can include time spent reading or thinking. The keyboard map assumes US QWERTY.</p><p>Practice suggestions need three observations across two different words. The side comparison needs eight samples on each side. These minimums screen out sparse data. The passage, word familiarity and device can still affect the result. A faster retest is one observation.</p></details>
+  </section><div id="status" class="sr" aria-live="polite"></div>
+</main></body></html>
