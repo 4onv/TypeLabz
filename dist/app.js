@@ -13,7 +13,7 @@ const group = (items, key) => {
   for(const item of items){const k=key(item);if(!out.has(k))out.set(k,[]);out.get(k).push(item)}
   return out;
 };
-const colors = ["#dce5d7","#c6bda4","#d7a276"];
+const colors = ["#385746","#5a5143","#775037"];
 const rows = [
   [["`",1],..."1234567890-=".split(""),["delete",2]],
   [["tab",1.45],..."qwertyuiop[]".split(""),["\\",1.55]],
@@ -46,13 +46,13 @@ function paintBoard(){
   for(const [k,el] of keys){
     const list=timings.get(k)||[], val=median(list.map(p=>p.dt));
     el.classList.toggle("selected",selected===k);el.setAttribute("aria-pressed",String(selected===k));
-    el.style.background=view==="zones"?"":list.length<3?"#f6f5f9":colors[val<=mids[Math.floor((mids.length-1)/3)]?0:val<=mids[Math.floor(2*(mids.length-1)/3)]?1:2];
+    el.style.background=view==="zones"?"":list.length<3?"#2c2e29":colors[val<=mids[Math.floor((mids.length-1)/3)]?0:val<=mids[Math.floor(2*(mids.length-1)/3)]?1:2];
     if(selected===k){$("key-read").textContent=k.toUpperCase()+" · "+(hand(k)==="L"?"Left":"Right")+" zone · "+(list.length?ms(val)+" median arrival across "+list.length+" correct transition"+(list.length===1?"":"s"):"No correct transitions into this key yet.")}
   }
   $("key-read").hidden=!selected;
   $("map-note").textContent=view==="zones"?"See which side of the keyboard each letter belongs to.":"Median time to reach each letter, grouped by speed within this session.";
   $("zones").setAttribute("aria-pressed",String(view==="zones"));$("timing").setAttribute("aria-pressed",String(view==="timing"));
-  const items=view==="zones"?[["#e9d9bc","Left zone"],["#c5d5ca","Right zone"]]:[[colors[0],"Faster"],[colors[1],"Middle"],[colors[2],"Slower"],["#f6f5f9","Under 3 samples"]];
+  const items=view==="zones"?[["#4b453a","Left zone"],["#33483f","Right zone"]]:[[colors[0],"Faster"],[colors[1],"Middle"],[colors[2],"Slower"],["#2c2e29","Under 3 samples"]];
   $("legend").innerHTML=items.map(([color,label])=>'<span><i class="chip" style="background:'+color+'"></i>'+label+'</span>').join("");
 }
 function appendPrompt(text){
@@ -70,7 +70,7 @@ function reset(next="test"){
   generator=createGenerator(settings);
   const timed=next==="test" && settings.kind==="time";
   const words=next==="test"?(settings.kind==="chars"?generator.characters(settings.target):generator.words(timed?45:settings.target)):(next==="drill"?lesson.practice:lesson.retest).join(" ");
-  state={text:"",typed:"",shots:0,hits:0,samples:[],edits:new Set(),last:null,elapsed:0,since:null,done:false,nodes:[],limit:timed?settings.target*1000:Infinity};
+  state={text:"",typed:[],actions:[],shots:0,hits:0,samples:[],edits:new Set(),last:null,elapsed:0,since:null,done:false,nodes:[],limit:timed?settings.target*1000:Infinity};
   selected=null;view="zones";const passage=$("passage");passage.replaceChildren();passage.style.top="0px";
   appendPrompt(words);
   state.nodes[0].className="current";$("capture").value="";$("capture").disabled=false;
@@ -93,6 +93,7 @@ function meters(){
   $("time").textContent=Math.max(0,Math.ceil(target-used));$("unit").textContent={time:"s",words:"words",chars:"chars"}[kind];
   $("remaining-label").textContent={time:"Time remaining",words:"Words remaining",chars:"Characters remaining"}[kind];
   $("progress").value=Math.min(1,used/target);
+  $("gauge").style.setProperty("--remaining",Math.max(0,1-used/target)*360+"deg");
   const correct=[...state.typed].filter((c,i)=>c===state.text[i]).length;
   $("wpm").textContent=spent>=500?Math.round(correct*12000/spent):"—";$("accuracy").textContent=state.shots?Math.round(100*state.hits/state.shots):"—";
 }
@@ -104,14 +105,35 @@ function pause(){
 }
 function input(ch,eventTime){
   if(state.done)return;const now=performance.now();if(elapsed(now)>=state.limit){finish();return}
+  const pos=state.typed.length;
+  if(ch===" " && (pos===0 || state.text[pos-1]===" "))return;
   if(state.since===null){state.since=now;timer=setInterval(()=>{if(elapsed()>=state.limit)finish();else meters()},150);$("signal").textContent="Live";$("hint").textContent="Recording keystrokes"}
-  const pos=state.typed.length,match=ch===state.text[pos];state.shots++;if(match)state.hits++;
-  state.samples[pos]=null;
-  if(match && /^[a-z]$/i.test(ch) && state.last!==null && eventTime>=state.last && pos>0 && /[a-z]/i.test(state.text[pos-1]) && state.typed[pos-1]===state.text[pos-1]){
-    state.samples[pos]={pair:(state.text[pos-1]+ch).toLowerCase(),dt:eventTime-state.last,pos};
+  const action={start:pos,extra:null};
+  if(ch===" "){
+    // A delimiter submits this word. Keep omitted positions aligned to the prompt.
+    while(state.typed.length<state.text.length && state.text[state.typed.length]!==" "){
+      state.nodes[state.typed.length].className="missed";
+      state.typed.push(null);
+      state.shots++;
+    }
+    if(state.typed.length<state.text.length){
+      state.nodes[state.typed.length].className="good";state.typed.push(" ");
+      state.shots++;state.hits++;
+    }
+    state.last=null;
+  }else if(state.text[pos]===" "){
+    const extra=document.createElement("span");extra.textContent=ch;extra.className="bad extra";
+    state.nodes[pos-1].parentElement.append(extra);action.extra=extra;
+    state.edits.add(pos-1);state.shots++;state.last=null;
+  }else{
+    const match=ch===state.text[pos];state.shots++;if(match)state.hits++;
+    if(match && /^[a-z]$/i.test(ch) && state.last!==null && eventTime>=state.last && pos>0 && /[a-z]/i.test(state.text[pos-1]) && state.typed[pos-1]===state.text[pos-1]){
+      state.samples[pos]={pair:(state.text[pos-1]+ch).toLowerCase(),dt:eventTime-state.last,pos};
+    }
+    state.last=match?eventTime:null;state.typed.push(ch);state.nodes[pos].className=match?"good":"bad";
   }
-  state.last=match?eventTime:null;state.typed+=ch;
-  state.nodes[pos].className=match?"good":"bad";const cap=keys.get(ch.toLowerCase());
+  state.actions.push(action);
+  const cap=keys.get(ch.toLowerCase());
   if(cap){cap.classList.add("hit");setTimeout(()=>cap.classList.remove("hit"),120)}
   if(Number.isFinite(state.limit) && state.text.length-state.typed.length<90)appendPrompt(" "+generator.words(35));
   if(state.typed.length===state.text.length){finish();return}
@@ -124,9 +146,17 @@ function cursor(){
   $("passage").style.top=-Math.max(0,Math.floor((y+lineHeight*.23)/lineHeight)-1)*lineHeight+"px";
 }
 function backspace(){
-  if(state.done||!state.typed.length)return;
+  if(state.done||!state.actions.length)return;
   if(elapsed()>=state.limit){finish();return}
-  state.nodes[state.typed.length].className="";state.typed=state.typed.slice(0,-1);state.samples.pop();state.edits.add(state.typed.length);state.last=null;
+  const action=state.actions.pop();
+  state.nodes[state.typed.length].classList.remove("current");
+  if(action.extra)action.extra.remove();
+  else {
+    for(let i=action.start;i<state.typed.length;i++)state.nodes[i].className="";
+    state.edits.add(action.start);state.typed.length=action.start;
+    state.samples.length=Math.min(action.start,state.samples.length);
+  }
+  state.last=null;
   cursor();meters();paintBoard();
 }
 function finish(){
@@ -141,7 +171,7 @@ function wordResults(){
     const end=match.index+match[0].length;
     if(end>state.typed.length)break;
     const pairs=state.samples.slice(match.index+1,end).filter(Boolean);
-    if(!pairs.length || pairs.length!==match[0].length-1 || state.typed.slice(match.index,end)!==match[0])continue;
+    if(!pairs.length || pairs.length!==match[0].length-1 || state.typed.slice(match.index,end).join("")!==match[0])continue;
     if([...state.edits].some(pos=>pos>=match.index && pos<end))continue;
     const total=pairs.reduce((sum,p)=>sum+p.dt,0);
     entries.push({word:match[0],pairs,pace:total/pairs.length,total});
@@ -174,6 +204,8 @@ function coach(text,label,action){
   if(label){const b=document.createElement("button");b.className="action";b.textContent=label;b.onclick=()=>{action();$("session-title").scrollIntoView({block:"center"})};box.append(b)}
 }
 function report(){
+  $("mistakes-only").checked=false;
+  renderWordReview();
   document.querySelector("[data-comparison]")?.remove();
   const samples=state.samples.filter(Boolean);$("report").hidden=false;
   const label=mode==="test"?settings.target+" "+({time:"seconds",words:"words",chars:"characters"}[settings.kind]):$("session-title").textContent;
@@ -205,6 +237,27 @@ function report(){
   if(!words.length)wrap.textContent="Type a whole word of at least two letters in one uninterrupted attempt to rank it.";
 }
 const field=$("capture");
+function renderWordReview(){
+  const rows=document.createDocumentFragment();
+  for(const match of state.text.matchAll(/\S+/g)){
+    if(match.index>=state.typed.length)break;
+    const end=match.index+match[0].length;
+    const extra=Array.from(state.nodes[match.index].parentElement.querySelectorAll(".extra"),el=>el.textContent).join("");
+    const typed=state.typed.slice(match.index,end).join("")+extra;
+    const result=end>state.typed.length?"Unfinished":typed===match[0]?"Correct":"Mistake";
+    if($("mistakes-only").checked && result!=="Mistake")continue;
+    const row=document.createElement("tr");
+    for(const value of [match[0],typed,result]){
+      const cell=document.createElement("td");cell.textContent=value;row.append(cell);
+    }
+    row.lastChild.className=result.toLowerCase();
+    rows.append(row);
+  }
+  $("review-empty").hidden=Boolean(rows.childElementCount);
+  $("review-empty").textContent=$("mistakes-only").checked?"No submitted words with mistakes.":"No words entered.";
+  $("review-rows").replaceChildren(rows);
+}
+$("mistakes-only").onchange=renderWordReview;
 field.addEventListener("keydown",e=>{
   if(e.ctrlKey||e.altKey||e.metaKey||e.isComposing)return;
   if(e.key==="Backspace"){e.preventDefault();backspace()}
