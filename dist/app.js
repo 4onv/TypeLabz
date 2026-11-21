@@ -25,6 +25,7 @@ const keys = new Map();
 let settings={kind:"time",target:30,profile:"standard",punctuation:false,caps:false};
 let generator;
 let mode="test", view="zones", state, lesson=null, selected=null, timer;
+let stopReplay;
 function makeBoard(){
   const board=$("keyboard");board.className="board";
   for(const row of rows){
@@ -66,16 +67,19 @@ function appendPrompt(text){
   $("passage").append(fragment);$("spoken-prompt").textContent="Type the following words. "+state.text;
 }
 function reset(next="test"){
+  stopReplay?.();stopReplay=null;
+  $("trace-events").replaceChildren();$("trace-gap").textContent="Δ — ms";
   clearInterval(timer);mode=next;
   generator=createGenerator(settings);
   const timed=next==="test" && settings.kind==="time";
   const words=next==="test"?(settings.kind==="chars"?generator.characters(settings.target):generator.words(timed?45:settings.target)):(next==="drill"?lesson.practice:lesson.retest).join(" ");
   state={text:"",typed:[],actions:[],shots:0,hits:0,samples:[],edits:new Set(),last:null,elapsed:0,since:null,done:false,nodes:[],limit:timed?settings.target*1000:Infinity};
+  state.events=[];state.date=new Date().toISOString();
   selected=null;view="zones";const passage=$("passage");passage.replaceChildren();passage.style.top="0px";
   appendPrompt(words);
   state.nodes[0].className="current";$("capture").value="";$("capture").disabled=false;
-  $("session-title").textContent=next==="test"?"Typing test":next==="drill"?"Pair practice":"Fresh-word retest";
-  $("hint").textContent=next==="test"?"Start typing to begin":"Target pair · "+lesson.pair.split("").join(" → ");
+  $("session-title").textContent=next==="test"?"Typing test":next==="drill"?(lesson.focus?"Focused practice":"Pair practice"):"Fresh-word retest";
+  $("hint").textContent=next==="test"?"Start typing to begin":lesson.focus||("Target pair · "+lesson.pair.split("").join(" → "));
   $("spoken-prompt").textContent="Type the following words. "+words;
   $("report").hidden=true;$("word-detail").hidden=true;
   $("signal").textContent="Ready";$("results-nav").hidden=true;
@@ -103,16 +107,33 @@ function pause(){
   state.elapsed=spent;state.since=null;state.last=null;clearInterval(timer);
   $("signal").textContent="Paused";$("hint").textContent="Paused · type to resume";meters();
 }
-function input(ch,eventTime){
+function recordPress(key,code,pos,result,eventTime,omitted=""){
+  const start=state.text.lastIndexOf(" ",Math.max(0,pos-1))+1;
+  const boundary=state.text.indexOf(" ",pos),end=boundary<0?state.text.length:boundary;
+  const extra=state.nodes[start]?.parentElement.querySelectorAll(".extra")||[];
+  const entry=state.typed.slice(start,end).join("")+Array.from(extra,n=>n.textContent).join("");
+  const previous=state.events.at(-1);
+  const eventClock=Number.isFinite(eventTime)&&eventTime>=0&&eventTime<=performance.now()?eventTime:performance.now();
+  const t=Math.max(previous?.t||0,Math.round(Math.min(state.limit,state.elapsed+Math.max(0,eventClock-(state.since??eventClock)))));
+  state.events.push({t,key,code:code||"",offset:start,word:state.text.slice(start,end),entry,result,expected:state.text[pos]||"",omitted});
+  const chip=document.createElement("span");
+  chip.textContent=key===" "?"␣":key==="Backspace"?"⌫":key;
+  chip.className=["Mistype","Extra","Skipped"].includes(result)?"trace-error":"";
+  const trace=$("trace-events");trace.append(chip);if(trace.children.length>8)trace.firstChild.remove();
+  $("trace-gap").textContent=previous?"Δ "+(t-previous.t)+" ms":"Δ — ms";
+}
+function input(ch,eventTime,code){
   if(state.done)return;const now=performance.now();if(elapsed(now)>=state.limit){finish();return}
   const pos=state.typed.length;
-  if(ch===" " && (pos===0 || state.text[pos-1]===" "))return;
+  if(ch===" " && (pos===0 || state.text[pos-1]===" ")){recordPress(ch,code,pos,"Ignored",eventTime);return}
   if(state.since===null){state.since=now;timer=setInterval(()=>{if(elapsed()>=state.limit)finish();else meters()},150);$("signal").textContent="Live";$("hint").textContent="Recording keystrokes"}
   const action={start:pos,extra:null};
+  let result="Correct",omitted="";
   if(ch===" "){
     // A delimiter submits this word. Keep omitted positions aligned to the prompt.
     while(state.typed.length<state.text.length && state.text[state.typed.length]!==" "){
       state.nodes[state.typed.length].className="missed";
+      omitted+=state.text[state.typed.length];result="Skipped";
       state.typed.push(null);
       state.shots++;
     }
@@ -125,14 +146,17 @@ function input(ch,eventTime){
     const extra=document.createElement("span");extra.textContent=ch;extra.className="bad extra";
     state.nodes[pos-1].parentElement.append(extra);action.extra=extra;
     state.edits.add(pos-1);state.shots++;state.last=null;
+    result="Extra";
   }else{
     const match=ch===state.text[pos];state.shots++;if(match)state.hits++;
+    if(!match)result="Mistype";
     if(match && /^[a-z]$/i.test(ch) && state.last!==null && eventTime>=state.last && pos>0 && /[a-z]/i.test(state.text[pos-1]) && state.typed[pos-1]===state.text[pos-1]){
       state.samples[pos]={pair:(state.text[pos-1]+ch).toLowerCase(),dt:eventTime-state.last,pos};
     }
     state.last=match?eventTime:null;state.typed.push(ch);state.nodes[pos].className=match?"good":"bad";
   }
   state.actions.push(action);
+  recordPress(ch,code,pos,result,eventTime,omitted);
   const cap=keys.get(ch.toLowerCase());
   if(cap){cap.classList.add("hit");setTimeout(()=>cap.classList.remove("hit"),120)}
   if(Number.isFinite(state.limit) && state.text.length-state.typed.length<90)appendPrompt(" "+generator.words(35));
@@ -145,9 +169,10 @@ function cursor(){
   const y=el.getBoundingClientRect().top-$("passage").getBoundingClientRect().top;
   $("passage").style.top=-Math.max(0,Math.floor((y+lineHeight*.23)/lineHeight)-1)*lineHeight+"px";
 }
-function backspace(){
-  if(state.done||!state.actions.length)return;
+function backspace(eventTime,code){
+  if(state.done)return;
   if(elapsed()>=state.limit){finish();return}
+  if(!state.actions.length){recordPress("Backspace",code,0,"Ignored",eventTime);return}
   const action=state.actions.pop();
   state.nodes[state.typed.length].classList.remove("current");
   if(action.extra)action.extra.remove();
@@ -157,6 +182,7 @@ function backspace(){
     state.samples.length=Math.min(action.start,state.samples.length);
   }
   state.last=null;
+  recordPress("Backspace",code,action.start,"Edit",eventTime);
   cursor();meters();paintBoard();
 }
 function finish(){
@@ -210,12 +236,17 @@ function report(){
   const samples=state.samples.filter(Boolean);$("report").hidden=false;
   const label=mode==="test"?settings.target+" "+({time:"seconds",words:"words",chars:"characters"}[settings.kind]):$("session-title").textContent;
   $("summary-line").textContent=[label,profileNames[settings.profile],$("wpm").textContent+" wpm",$("accuracy").textContent+"% accuracy",Math.round(state.elapsed/100)/10+" s active"].join(" · ");
+  stopReplay=replayPlayer($("replay-host"),{label:$("summary-line").textContent,date:state.date,prompt:state.text,duration:Math.round(state.elapsed),events:state.events},true);
+  $("training-menu").replaceChildren();
   if(mode==="test"){
     lesson=makeLesson(samples);
     if(lesson)coach("Practice "+lesson.pair.split("").join(" → ")+". This was your slowest repeated pair with fresh words available for a retest. Median gap: "+ms(lesson.baseline)+" across "+lesson.count+" samples.","Start pair practice",()=>reset("drill"));
     else coach("There are too few repeated pairs with fresh practice words. Try a longer test to build a comparison.","Try again",()=>reset());
+    showTrainingOptions();
   }else if(mode==="drill"){
-    coach("Now try the same pair in fresh words. Your original median was "+ms(lesson.baseline)+".","Start fresh-word retest",()=>reset("retest"));
+    coach(lesson.focus?"Try "+lesson.focus.toLowerCase()+" in fresh words.":"Now try the same pair in fresh words. Your original median was "+ms(lesson.baseline)+".","Start fresh-word retest",()=>reset("retest"));
+  }else if(lesson.focus){
+    coach(trainingComparison(lesson),"New typing test",()=>reset());
   }else{
     const gaps=samples.filter(x=>x.pair===lesson.pair).map(x=>x.dt), value=median(gaps);
     coach(value===null?"No clean samples of your target pair this time.":"Your "+lesson.pair+" gap went from "+ms(lesson.baseline)+" to "+ms(value)+" across "+gaps.length+" fresh-word samples. Overall accuracy was "+lesson.accuracy+"% on the original test and "+$("accuracy").textContent+"% on the retest.","New typing test",()=>reset());
@@ -260,12 +291,13 @@ function renderWordReview(){
 $("mistakes-only").onchange=renderWordReview;
 field.addEventListener("keydown",e=>{
   if(e.ctrlKey||e.altKey||e.metaKey||e.isComposing)return;
-  if(e.key==="Backspace"){e.preventDefault();backspace()}
-  else if(e.key.length===1){e.preventDefault();if(!e.repeat)input(e.key,e.timeStamp)}
+  if(e.key==="Backspace"){e.preventDefault();backspace(e.timeStamp,e.code)}
+  else if(e.key.length===1){e.preventDefault();if(!e.repeat)input(e.key,e.timeStamp,e.code)}
+  else if(!state.done&&!e.repeat&&["Shift","CapsLock"].includes(e.key))recordPress(e.key,e.code,state.typed.length,"Modifier",e.timeStamp);
 });
 field.addEventListener("beforeinput",e=>{
   if(e.inputType==="insertText"&&e.data?.length===1){e.preventDefault();input(e.data,e.timeStamp)}
-  else if(e.inputType==="deleteContentBackward"){e.preventDefault();backspace()}
+  else if(e.inputType==="deleteContentBackward"){e.preventDefault();backspace(e.timeStamp)}
   else e.preventDefault();
 });
 field.onpaste=e=>e.preventDefault();field.ondrop=e=>e.preventDefault();
