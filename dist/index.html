@@ -1,30 +1,22 @@
 <!doctype html>
-<html lang="en">
-<head>
+<html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TypeLabz</title>
-<script src="designs.js"></script>
-<link rel="stylesheet" href="style.css"><link rel="stylesheet" href="studio.css">
-<script defer src="app.js"></script>
-</head><body>
-<header><div class="header-inner"><a class="brand" href="./" aria-label="TypeLabz home">TypeLabz</a><a class="design-link" href="designs.html">Designs</a></div></header>
-<main>
-  <h1 class="sr">TypeLabz typing test</h1>
-  <div class="desk">
-    <div class="rail"><h2 id="session-title">Typing test</h2><div class="switch duration" aria-label="Test duration"><button data-duration="30" aria-pressed="true">30s</button><button data-duration="60" aria-pressed="false">60s</button><button data-duration="90" aria-pressed="false">90s</button></div></div>
-    <div class="surface"><div class="clock" aria-label="Time left"><span id="time">30</span><small>s</small></div>
-      <div class="test-area" id="test-area"><div id="passage" aria-hidden="true"></div><textarea id="capture" aria-label="Typing test input" aria-describedby="spoken-prompt" autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false"></textarea></div>
-    </div>
-    <div class="test-bottom"><span id="hint">Start typing to begin</span><button id="restart" title="Restart the current test">↻ <span>Restart</span></button></div>
-    <p id="spoken-prompt" class="sr"></p>
-  </div>
-  <section id="report" hidden aria-labelledby="report-title">
-    <h2 id="report-title" tabindex="-1">Session results</h2>
-    <div class="scoreline"><strong><span id="wpm">—</span> <small>wpm</small></strong><strong><span id="accuracy">—</span><small>% accuracy</small></strong></div>
-    <div id="coaching"></div>
-    <h3>Keyboard zones</h3><div id="movement"></div>
-    <details class="report-detail"><summary>Keyboard map</summary><div class="panel-bar"><p id="map-note"></p><div class="switch"><button id="zones" aria-pressed="false">Zones</button><button id="timing" aria-pressed="true">Timing</button></div></div><div class="board-wrap"><div id="keyboard" aria-label="QWERTY keyboard"></div></div><div id="legend"></div><div class="key-read" id="key-read" role="status" hidden></div></details>
-    <details class="report-detail"><summary>Word timings</summary><p class="muted">Clean words, fastest first by average gap from first to last letter. Select a word to inspect its gaps.</p><div id="words"></div><div class="key-read" id="word-detail" role="status" hidden></div></details>
-    <details class="report-detail"><summary>How the numbers work</summary><p>WPM counts correct characters still in the passage, including spaces, in groups of five per active minute. Accuracy counts correct character attempts divided by all character attempts, including mistakes you later corrected. Backspace is an editing action.</p><p>Pair and zone timings are medians of consecutive correct letters within words. Errors, edits, spaces and focus changes break a pair. A pause while the test stays focused can include time spent reading or thinking. The keyboard map assumes US QWERTY.</p><p>Practice suggestions need three observations across two different words. The side comparison needs eight samples on each side. These minimums screen out sparse data. The passage, word familiarity and device can still affect the result. A faster retest is one observation.</p></details>
-  </section><div id="status" class="sr" aria-live="polite"></div>
-</main></body></html>
+<title>TypeLabz</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="console.css">
+<script defer src="generator.js"></script><script defer src="app.js"></script></head>
+<body><a href="#workspace" class="skip">Skip to workspace</a>
+<div class="shell"><aside class="side"><a href="./" class="brand"><span class="logo" aria-hidden="true">⌘</span>TypeLabz</a>
+<nav aria-label="Workspace navigation"><a href="#workspace" class="nav-active"><span aria-hidden="true">▦</span> Workspace</a><a href="#configuration"><span aria-hidden="true">≡</span> Configuration</a><a id="results-nav" href="#report" hidden><span aria-hidden="true">▥</span> Session results</a></nav>
+<div class="side-foot"><span class="keycap">A</span><span>Keyboard layout<br><b>US QWERTY</b></span></div></aside>
+<main id="workspace"><div class="crumb">TypeLabz <span>/</span> Workspace</div><div class="mast"><h1>Typing console</h1><span class="locale">EN <i></i> QWERTY</span></div>
+<section id="configuration" aria-labelledby="config-title"><h2 id="config-title">Test configuration</h2>
+<div class="config-grid"><label>Test mode<select id="test-mode"><option value="time">Time</option><option value="words">Word count</option><option value="chars">Character count</option></select></label><label><span id="target-label">Duration</span><select id="target"></select></label>
+<label>Vocabulary<select id="profile"><option value="standard">Everyday</option><option value="hard">Hard words</option><option value="code">Code terms</option><option value="raw">Random letters</option></select></label>
+<div class="mods"><label><input type="checkbox" id="punct"> Punctuation</label><label><input type="checkbox" id="caps"> Capitals</label></div></div><p id="profile-note"></p></section>
+<div class="bench"><section class="surface" aria-labelledby="session-title"><div class="strip"><h2 id="session-title">Typing test</h2><span id="signal">Ready</span></div>
+<div class="test-area" id="test-area"><div id="passage" aria-hidden="true"></div><textarea id="capture" aria-label="Typing test input" aria-describedby="spoken-prompt" autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false"></textarea></div>
+<div class="test-bottom"><span id="hint">Start typing to begin</span><button id="restart" type="button">↻ <span>Restart</span></button></div><p id="spoken-prompt" class="sr"></p></section>
+<aside class="meter"><div class="meter-top"><span id="remaining-label">Time remaining</span><span class="meter-icon" aria-hidden="true">◷</span></div><div class="count"><b id="time">30</b> <small id="unit">s</small></div><progress id="progress" value="0" max="1" aria-label="Test progress"></progress><div class="reading"><span>Throughput</span><b><span id="wpm">—</span> wpm</b></div><div class="reading"><span>Accuracy</span><b><span id="accuracy">—</span>%</b></div></aside></div>
+<section class="map-panel"><details id="key-panel"><summary>Keyboard map</summary><div class="panel-bar"><p id="map-note"></p><div class="switch"><button id="zones" aria-pressed="true">Zones</button><button id="timing" aria-pressed="false">Timing</button></div></div><div class="board-wrap"><div id="keyboard" aria-label="QWERTY keyboard"></div></div><div id="legend"></div><div class="key-read" id="key-read" role="status" hidden></div></details></section>
+<section id="report" hidden aria-labelledby="report-title"><h2 id="report-title" tabindex="-1">Session results</h2><div id="summary-line"></div><div id="coaching"></div><h3>Keyboard zones</h3><div id="movement"></div>
+<details class="report-detail"><summary>Word timings</summary><p>Complete, clean letter sequences ranked by mean letter gap. Punctuation and spaces separate sequences.</p><div id="words"></div><div class="key-read" id="word-detail" role="status" hidden></div></details>
+<details class="report-detail"><summary>Measurement details</summary><p>WPM counts correct characters still in the buffer, including spaces and punctuation, per five characters per active minute. Accuracy counts correct character attempts out of all character attempts. Backspace is an edit. Count tests end at the final position, including mistakes.</p><p>Pair and zone times are medians of adjacent correct letters. Case is normalized for grouping. Errors, edits, punctuation, spaces and focus changes break a pair. Each key needs three samples for a heatmap color. The side comparison needs eight samples on each side. Finger use is self-observed.</p><p>Reading a rare word, reaching for Shift and decoding a random string all affect speed. Compare runs with the same settings.</p></details></section><div class="sr" id="status" aria-live="polite"></div></main></div></body></html>
