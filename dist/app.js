@@ -189,6 +189,12 @@ function finish(){
   if(state.done)return;state.elapsed=Math.min(state.limit,elapsed());state.since=null;state.done=true;clearInterval(timer);
   $("capture").disabled=true;$("signal").textContent="Complete";$("results-nav").hidden=false;$("hint").textContent="Session complete";$("status").textContent="Session complete. Your analysis is ready.";
   state.nodes[state.typed.length]?.classList.remove("current");meters();view="timing";paintBoard();report();
+  if(state.shots>0)void accountProgress.complete({
+    id:crypto.randomUUID(), phase:mode, kind:settings.kind, target:settings.target,
+    profile:settings.profile, punctuation:settings.punctuation, caps:settings.caps,
+    elapsedMs:Math.round(state.elapsed), hits:state.hits, attempts:state.shots,
+    correctChars:state.typed.reduce((count,ch,i)=>count+Number(ch===state.text[i]),0)
+  });
   $("report-title").focus({preventScroll:true});$("report").scrollIntoView({block:"start"});
 }
 function wordResults(){
