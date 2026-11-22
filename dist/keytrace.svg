@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>TypeLabz Keytrace</title>
+  <style>
+    @media (max-width: 20px) {
+      .trace { stroke-width: 5; }
+      .stars { display: none; }
+    }
+  </style>
+  <rect width="64" height="64" rx="13" fill="#202a24"/>
+  <path class="trace" d="M5 45H15V29H26V45H37V13H48V32H58"
+        fill="none" stroke="#a6d7b8" stroke-width="3.6" stroke-linejoin="round"/>
+  <g class="stars" fill="#d6f4db">
+    <circle cx="5" cy="45" r="2.7"/>
+    <circle cx="15" cy="29" r="3.1"/>
+    <circle cx="37" cy="45" r="2.7"/>
+    <path d="M37 6.4l1.85 4.75L43.6 13l-4.75 1.85L37 19.6l-1.85-4.75L30.4 13l4.75-1.85z"/>
+  </g>
+  <rect x="54.4" y="26.5" width="7.2" height="11" rx="1" fill="#f0bc89"/>
+</svg>
